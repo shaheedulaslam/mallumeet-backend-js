@@ -14,10 +14,10 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "*",               // tighten in production (set your frontend origin)
-    methods: ["GET", "POST"]
+    origin: "*", // tighten in production (set your frontend origin)
+    methods: ["GET", "POST"],
   },
-  transports: ["websocket", "polling"]
+  transports: ["websocket", "polling"],
 });
 
 // keep only minimal info here, not full socket objects
@@ -46,20 +46,20 @@ io.on("connection", (socket) => {
       io.to(socket.id).emit("paired", {
         partnerId: partner.id,
         partnerName: partner.name,
-        partnerInterests: partner.interests
+        partnerInterests: partner.interests,
       });
 
       io.to(partner.id).emit("paired", {
         partnerId: socket.id,
         partnerName: name,
-        partnerInterests: interests
+        partnerInterests: interests,
       });
     } else {
       // put current user into waiting queue
       waitingQueue.push({
         id: socket.id,
         name,
-        interests
+        interests,
       });
     }
   });
@@ -89,11 +89,29 @@ io.on("connection", (socket) => {
   // 4) Leave / next
   socket.on("leave", () => {
     if (socket.partnerId) {
-      io.to(socket.partnerId).emit("disconnected");
-      io.sockets.sockets.get(socket.partnerId).partnerId = null;
+      const partnerSock = io.sockets.sockets.get(socket.partnerId);
+      if (partnerSock) {
+        partnerSock.partnerId = null;
+        io.to(socket.partnerId).emit("disconnected");
+      }
       socket.partnerId = null;
     }
+    // Immediately put them back in queue
+    waitingQueue.push({ id: socket.id, name: "Stranger", interests: [] });
+    tryMatch(socket); // function to check if we can pair immediately
   });
+
+  function tryMatch(socket) {
+    if (waitingQueue.length > 0) {
+      const partner = waitingQueue.shift();
+      if (partner.id !== socket.id) {
+        socket.partnerId = partner.id;
+        io.sockets.sockets.get(partner.id).partnerId = socket.id;
+        io.to(socket.id).emit("paired", { partnerId: partner.id });
+        io.to(partner.id).emit("paired", { partnerId: socket.id });
+      }
+    }
+  }
 
   // 5) Disconnect cleanup
   socket.on("disconnect", () => {
