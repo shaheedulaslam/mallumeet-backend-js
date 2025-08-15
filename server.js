@@ -14,7 +14,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "*", // In production, specify your frontend URL
+    origin: ["https://mallumeet.netlify.app/"], // In production, specify your frontend URL
     methods: ["GET", "POST"],
   },
   transports: ["websocket", "polling"],
