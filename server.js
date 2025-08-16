@@ -32,13 +32,13 @@ app.post("/api/contact", async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // Create transporter (using MailHog for local development)
-    // In production, use a real email service
     const transporter = nodemailer.createTransport({
-      service: "Gmail", // or other services like SendGrid
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
+        user: process.env.EMAIL_USER, // e.g. your Gmail address
+        pass: process.env.EMAIL_PASSWORD, // Gmail app password
       },
     });
 
