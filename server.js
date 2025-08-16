@@ -14,7 +14,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "*", // In production, specify your frontend URL
+    origin: process.env.FRONTEND_URL || "http://localhost:3000", // In production, specify your frontend URL
     methods: ["GET", "POST"],
   },
   transports: ["websocket", "polling"],
