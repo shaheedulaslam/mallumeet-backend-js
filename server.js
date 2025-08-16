@@ -2,13 +2,69 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
+const bodyParser = require("body-parser");
+const nodemailer = require("nodemailer");
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin:
+      process.env.NODE_ENV === "production"
+        ? "https://mallumeet.netlify.app/"
+        : "http://localhost:3000",
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type"],
+  })
+);
+app.use(bodyParser.json());
 
 // Health check endpoints
 app.get("/", (_req, res) => res.send("OK"));
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
+
+// New Contact Form Endpoint
+app.post("/api/contact", async (req, res) => {
+  try {
+    const { name, email, message } = req.body;
+
+    // Validate input
+    if (!name || !email || !message) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    // Create transporter (using MailHog for local development)
+    // In production, use a real email service
+    const transporter = nodemailer.createTransport({
+      service: "Gmail", // or other services like SendGrid
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+    });
+
+    // Email options
+    const mailOptions = {
+      from: "contact@mallumeet.com",
+      to: "shaheedulaslam061@gmail.com",
+      subject: `New Contact Form Submission from ${name}`,
+      html: `
+        <h2>New Contact Form Submission</h2>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Message:</strong></p>
+        <p>${message}</p>
+      `,
+    };
+
+    // Send email
+    await transporter.sendMail(mailOptions);
+
+    return res.status(200).json({ message: "Message sent successfully" });
+  } catch (error) {
+    console.error("Error sending email:", error);
+    return res.status(500).json({ message: "Failed to send message" });
+  }
+});
 
 const server = http.createServer(app);
 
@@ -34,15 +90,15 @@ const getSocketById = (id) => io.sockets.sockets.get(id);
 function matchUsers() {
   // Sort by most compatible matches first (based on shared interests)
   waitingQueue.sort((a, b) => {
-    const commonA = a.interests.filter(i => b.interests.includes(i)).length;
-    const commonB = b.interests.filter(i => a.interests.includes(i)).length;
+    const commonA = a.interests.filter((i) => b.interests.includes(i)).length;
+    const commonB = b.interests.filter((i) => a.interests.includes(i)).length;
     return commonB - commonA;
   });
 
   while (waitingQueue.length >= 2) {
     const user1 = waitingQueue.shift();
     const user2 = waitingQueue.shift();
-    
+
     const socket1 = getSocketById(user1.id);
     const socket2 = getSocketById(user2.id);
 
@@ -56,22 +112,22 @@ function matchUsers() {
     // Pair them
     socket1.partnerId = user2.id;
     socket2.partnerId = user1.id;
-    
+
     // Clear any queue timeouts
     if (socket1.queueTimeout) clearTimeout(socket1.queueTimeout);
     if (socket2.queueTimeout) clearTimeout(socket2.queueTimeout);
 
     // Notify both users
-    socket1.emit("paired", { 
+    socket1.emit("paired", {
       partnerId: user2.id,
       partnerName: user2.name || "Stranger",
-      partnerInterests: user2.interests || []
+      partnerInterests: user2.interests || [],
     });
-    
-    socket2.emit("paired", { 
+
+    socket2.emit("paired", {
       partnerId: user1.id,
       partnerName: user1.name || "Stranger",
-      partnerInterests: user1.interests || []
+      partnerInterests: user1.interests || [],
     });
 
     console.log(`Matched ${user1.id} with ${user2.id}`);
@@ -87,9 +143,9 @@ io.on("connection", (socket) => {
 
   // Set up queue timeout
   socket.queueTimeout = setTimeout(() => {
-    if (!socket.partnerId && waitingQueue.some(u => u.id === socket.id)) {
+    if (!socket.partnerId && waitingQueue.some((u) => u.id === socket.id)) {
       socket.emit("queue-timeout");
-      waitingQueue = waitingQueue.filter(u => u.id !== socket.id);
+      waitingQueue = waitingQueue.filter((u) => u.id !== socket.id);
       console.log(`User ${userId} timed out waiting for match`);
     }
   }, MAX_QUEUE_TIME);
@@ -103,12 +159,12 @@ io.on("connection", (socket) => {
       id: socket.id,
       name: data.name || "Stranger",
       interests: Array.isArray(data.interests) ? data.interests : [],
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     // Remove if already in queue (prevent duplicates)
-    waitingQueue = waitingQueue.filter(u => u.id !== socket.id);
-    
+    waitingQueue = waitingQueue.filter((u) => u.id !== socket.id);
+
     // Add to queue
     waitingQueue.push(userData);
     socket.emit("queue-position", { position: waitingQueue.length });
@@ -159,13 +215,13 @@ io.on("connection", (socket) => {
     }
 
     // Rejoin queue with existing data or as new user
-    const existingUser = waitingQueue.find(u => u.id === socket.id);
+    const existingUser = waitingQueue.find((u) => u.id === socket.id);
     if (!existingUser) {
       waitingQueue.push({
         id: socket.id,
         name: "Stranger",
         interests: [],
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
     }
 
@@ -180,7 +236,7 @@ io.on("connection", (socket) => {
     if (socket.queueTimeout) clearTimeout(socket.queueTimeout);
 
     // Remove from queue
-    waitingQueue = waitingQueue.filter(u => u.id !== socket.id);
+    waitingQueue = waitingQueue.filter((u) => u.id !== socket.id);
 
     // Notify partner if in a chat
     if (socket.partnerId) {
