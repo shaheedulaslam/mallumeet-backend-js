@@ -22,45 +22,6 @@ app.use(bodyParser.json());
 app.get("/", (_req, res) => res.send("OK"));
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
 
-// app.post("/api/contact", async (req, res) => {
-//   try {
-//     const { name, email, message } = req.body;
-
-//     if (!name || !email || !message) {
-//       return res.status(400).json({ message: "All fields are required" });
-//     }
-
-//     const transporter = nodemailer.createTransport({
-//       service: "SendGrid",
-//       auth: {
-//         user: "apikey", // fixed value
-//         pass: process.env.EMAIL_PASSWORD, // SendGrid API Key
-//       },
-//     });
-
-//     const mailOptions = {
-//       from: "contact@mallumeet.com", // verified sender in SendGrid
-//       to: "shaheedulaslam061@gmail.com",
-//       subject: `New Contact Form Submission from ${name}`,
-//       html: `
-//         <h2>New Contact Form Submission</h2>
-//         <p><strong>Name:</strong> ${name}</p>
-//         <p><strong>Email:</strong> ${email}</p>
-//         <p><strong>Message:</strong></p>
-//         <p>${message}</p>
-//       `,
-//     };
-
-//     await transporter.sendMail(mailOptions);
-
-//     res.status(200).json({ message: "Message sent successfully" });
-//   } catch (error) {
-//     console.error("Error sending email:", error);
-//     res.status(500).json({ message: "Failed to send message" });
-//   }
-// });
-
-
 const server = http.createServer(app);
 
 const io = new Server(server, {
